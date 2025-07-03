@@ -1,8 +1,8 @@
 import NextAuth from "next-auth";
 import GitHubProvider from "next-auth/providers/github";
+import GoogleProvider from "next-auth/providers/google";
 import connectDB from "@/db/connectDb";
 import User from "@/models/User";
-import Payment from "@/models/Payment";
 
 export const authOptions = {
   providers: [
@@ -10,30 +10,33 @@ export const authOptions = {
       clientId: process.env.GITHUB_ID,
       clientSecret: process.env.GITHUB_SECRET,
     }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_ID,
+      clientSecret: process.env.GOOGLE_SECRET,
+    }),
   ],
+  pages: {
+    signIn: "/login",  // 👈 use your custom login page
+  },
   callbacks: {
     async signIn({ user, account }) {
       try {
-        if (account.provider === "github") {
-          await connectDB();
-          const existingUser = await User.findOne({ email: user.email });
-          if (!existingUser) {
-            const newUser = new User({
-              email: user.email,
-              username: user.email.split("@")[0],
-            });
-            await newUser.save();
-          }
-          return true;
+        await connectDB();
+        const existingUser = await User.findOne({ email: user.email });
+        if (!existingUser) {
+          const newUser = new User({
+            email: user.email,
+            username: user.email.split("@")[0],
+          });
+          await newUser.save();
         }
-        return false;
+        return true;
       } catch (err) {
         console.error("signIn error:", err);
         return false;
       }
     },
-
-    async session({ session, token }) {
+    async session({ session }) {
       try {
         await connectDB();
         const dbUser = await User.findOne({ email: session.user.email });
@@ -50,5 +53,6 @@ export const authOptions = {
   },
   debug: true,
 };
+
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
